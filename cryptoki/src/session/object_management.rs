@@ -15,6 +15,7 @@ use std::convert::TryInto;
 /// See the documentation for [Session::find_objects_init].
 #[derive(Debug)]
 pub struct FindObjects<'a> {
+    default_batch_size: usize,
     session: &'a mut Session,
 }
 
@@ -29,7 +30,7 @@ impl<'a> FindObjects<'a> {
     ///
     /// This function returns up to `max_objects` objects.  If there are no remaining
     /// objects, or `max_objects` is 0, then it returns an empty vector.
-    pub fn find_next(&mut self, max_objects: usize) -> Result<Vec<ObjectHandle>> {
+    pub fn find_next(&self, max_objects: usize) -> Result<Vec<ObjectHandle>> {
         if max_objects == 0 {
             return Ok(vec![]);
         }
@@ -57,6 +58,22 @@ impl<'a> FindObjects<'a> {
     }
 }
 
+impl<'a> Iterator for &FindObjects<'a> {
+    type Item = Result<Vec<ObjectHandle>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let items = self.find_next(self.default_batch_size);
+        if let Ok(items) = items {
+            if items.is_empty() {
+                None
+            } else {
+                Some(Ok(items))
+            }
+        } else {
+            Some(items)
+        }
+    }
+}
+
 impl<'a> Drop for FindObjects<'a> {
     fn drop(&mut self) {
         if let Err(e) = find_objects_final_private(self.session) {
@@ -79,6 +96,7 @@ fn find_objects_final_private(session: &Session) -> Result<()> {
 pub(super) fn find_objects_init<'a>(
     session: &'a mut Session,
     template: &[Attribute],
+    batch_size: usize,
 ) -> Result<FindObjects<'a>> {
     let mut template: Vec<CK_ATTRIBUTE> = template.iter().map(|attr| attr.into()).collect();
     unsafe {
@@ -89,7 +107,10 @@ pub(super) fn find_objects_init<'a>(
         ))
         .into_result()?;
     }
-    Ok(FindObjects { session })
+    Ok(FindObjects {
+        session,
+        default_batch_size: batch_size,
+    })
 }
 
 // Search 10 elements at a time
@@ -101,7 +122,7 @@ pub(super) fn find_objects(
     session: &mut Session,
     template: &[Attribute],
 ) -> Result<Vec<ObjectHandle>> {
-    let mut search = session.find_objects_init(template)?;
+    let search = session.find_objects_init(template, MAX_OBJECT_COUNT)?;
     let mut objects = Vec::new();
 
     while let ref new_objects @ [_, ..] = search.find_next(MAX_OBJECT_COUNT)?[..] {

@@ -156,12 +156,12 @@ impl Session {
     ///
     /// fn print_object_labels(session: &mut Session, template: &[Attribute]) -> Result<()> {
     ///     // Initiate the search.
-    ///     let mut search = session.find_objects_init(template)?;
+    ///     let search = session.find_objects_init(template, BATCH_SIZE)?;
     ///
     ///     // Iterate over batches of results, while find_next returns a non-empty batch
-    ///     while let ref objects @ [_, ..] = search.find_next(BATCH_SIZE)?[..] {
+    ///     for objects in &search {
     ///         // Iterate over objects in the batch.
-    ///         for &object in objects {
+    ///         for object in objects? {
     ///             // Look up the label for the object.  We can't use `session` directly here,
     ///             // since it's mutably borrowed by search.  Instead, use `search.session()`.
     ///             let attrs = search.session().get_attributes(object, &[AttributeType::Label])?;
@@ -174,8 +174,30 @@ impl Session {
     ///     Ok(())
     /// }
     /// ```
-    pub fn find_objects_init<'a>(&'a mut self, template: &[Attribute]) -> Result<FindObjects<'a>> {
-        object_management::find_objects_init(self, template)
+    ///
+    /// There can be only one search in progress, the following example will not work:
+    ///
+    /// ```compile_fail
+    /// use cryptoki::error::Result;
+    /// use cryptoki::object::{Attribute, AttributeType};
+    /// use cryptoki::session::Session;
+    ///
+    /// const BATCH_SIZE: usize = 10;
+    ///
+    /// fn print_object_labels(session: &mut Session, template: &[Attribute]) -> Result<()> {
+    ///     // Initiate the search.
+    ///     let search = &session.find_objects_init(template, BATCH_SIZE)?;
+    ///     // Try to initiate second search - will not work!
+    ///     let search2 = session.find_objects_init(template, 10)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn find_objects_init<'a>(
+        &'a mut self,
+        template: &[Attribute],
+        batch_size: usize,
+    ) -> Result<FindObjects<'a>> {
+        object_management::find_objects_init(self, template, batch_size)
     }
 
     /// Create a new object

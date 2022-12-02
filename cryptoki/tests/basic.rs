@@ -926,7 +926,7 @@ fn find_objects_incrementally_all() -> Result<()> {
     generate_sample_objects(&session, &expected_labels)?;
 
     // Find all objects
-    let mut search = session.find_objects_init(&[])?;
+    let search = session.find_objects_init(&[], 10)?;
     let objects = search.find_next(10)?;
     assert!(search.find_next(10)?.is_empty());
     drop(search);
@@ -950,7 +950,7 @@ fn find_objects_incrementally_none() -> Result<()> {
     generate_sample_objects(&session, ["foo"])?;
 
     // Search for objects labeled "bar"
-    let mut search = session.find_objects_init(&[Attribute::Label(b"bar".to_vec())])?;
+    let search = session.find_objects_init(&[Attribute::Label(b"bar".to_vec())], 10)?;
     assert!(search.find_next(10)?.is_empty());
     Ok(())
 }
@@ -974,7 +974,7 @@ fn find_objects_incrementally_single_batch() -> Result<()> {
     )?;
 
     // search for all AES keys
-    let mut search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)])?;
+    let search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)], 10)?;
     let objects = search.find_next(10)?;
     assert!(search.find_next(10)?.is_empty());
     drop(search);
@@ -1003,7 +1003,7 @@ fn find_objects_incrementally_multiple_batches() -> Result<()> {
     )?;
 
     // search for all AES keys
-    let mut search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)])?;
+    let search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)], 10)?;
     let objects1 = search.find_next(2)?;
     assert_eq!(2, objects1.len());
     let objects2 = search.find_next(2)?;
@@ -1036,7 +1036,7 @@ fn find_objects_incrementally_zero_batch() -> Result<()> {
     )?;
 
     // search for all AES keys
-    let mut search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)])?;
+    let search = session.find_objects_init(&[Attribute::KeyType(KeyType::AES)], 10)?;
 
     // get a batch of size 0
     assert!(search.find_next(0)?.is_empty());
